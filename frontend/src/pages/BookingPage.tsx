@@ -17,6 +17,30 @@ function BookingPage() {
   const [comment, setComment] = useState('')
   const [confirmation, setConfirmation] = useState<Booking | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
+
+  function fetchSlots(meetingType: MeetingType) {
+    return meetingTypesApi.meetingTypesListSlots({ meetingTypeId: meetingType.id })
+  }
+
+  async function loadSlots(meetingType: MeetingType) {
+    try {
+      setSlots(await fetchSlots(meetingType))
+      setSlotsError(null)
+    } catch {
+      setSlots(null)
+      setSlotsError('Не удалось обновить свободные слоты')
+    }
+  }
+
+  async function refreshSlotsQuietly(meetingType: MeetingType) {
+    try {
+      setSlots(await fetchSlots(meetingType))
+      setSlotsError(null)
+    } catch {
+      setSlotsError(null)
+    }
+  }
 
   async function selectType(meetingType: MeetingType) {
     setSelected(meetingType)
@@ -24,12 +48,9 @@ function BookingPage() {
     setChosenSlot(null)
     setConfirmation(null)
     setError(null)
+    setSlotsError(null)
 
-    try {
-      setSlots(await meetingTypesApi.meetingTypesListSlots({ meetingTypeId: meetingType.id }))
-    } catch {
-      setError('Не удалось загрузить свободные слоты')
-    }
+    await loadSlots(meetingType)
   }
 
   async function book(event: FormEvent) {
@@ -55,18 +76,17 @@ function BookingPage() {
       setGuestEmail('')
       setComment('')
     } catch (err) {
-      setError(
-        err instanceof ResponseError && err.response.status === 409
-          ? 'Это время уже занято'
-          : 'Не удалось записаться',
-      )
+      if (err instanceof ResponseError && err.response.status === 409) {
+        setError('Это время уже заняли. Выберите другой слот')
+        setChosenSlot(null)
+        await loadSlots(selected)
+      } else {
+        setError('Не удалось записаться')
+      }
       return
     }
 
-    void meetingTypesApi
-      .meetingTypesListSlots({ meetingTypeId: selected.id })
-      .then(setSlots)
-      .catch(() => {})
+    await refreshSlotsQuietly(selected)
   }
 
   return (
@@ -95,6 +115,23 @@ function BookingPage() {
       )}
 
       {error && <p className="status status--down">{error}</p>}
+
+      {slotsError && (
+        <p className="status status--down">
+          {slotsError}{' '}
+          <button
+            className="button button--secondary"
+            type="button"
+            onClick={() => {
+              if (selected) {
+                void loadSlots(selected)
+              }
+            }}
+          >
+            Повторить загрузку
+          </button>
+        </p>
+      )}
 
       {selected && slots && (
         <section className="section" aria-labelledby="slots-title">
