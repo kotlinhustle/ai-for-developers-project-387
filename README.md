@@ -249,6 +249,9 @@ E2E_BASE_URL=http://localhost:4173 npm test
   CHANGELOG на основе Conventional Commits.
 - `.github/workflows/pr-title.yml` — проверяет, что заголовок PR соответствует
   Conventional Commits.
+- `.github/workflows/opencode.yml` — интерактивный агент OpenCode: запускается
+  командой `/oc` или `/opencode` в комментарии к issue или pull request
+  (комментарии ботов игнорируются).
 
 Версия приложения (`0.1.0`) синхронизирована между `version.txt`,
 `.release-please-manifest.json`, `backend/build.gradle.kts` и

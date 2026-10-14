@@ -28,6 +28,7 @@ docker-compose.yml             Postgres (+ app) для локального за
 opencode.json                  проектная MCP-конфигурация (Render, ключ из env)
 .github/workflows/
   ci.yml                       push + pull_request: Backend, Frontend, E2E, Docker
+  opencode.yml                 интерактивный агент: /oc или /opencode в комментарии
   release-please.yml           push в main: версия и CHANGELOG
   pr-title.yml                 проверка заголовка PR (Conventional Commits)
   hexlet-check.yml             НЕ ТРОГАТЬ (генерируется Хекслетом)
@@ -42,6 +43,9 @@ version.txt                    текущая версия (simple release type)
 
 ## Проверенные команды
 
+Раннер GitHub Actions — Linux (`ubuntu-latest`), поэтому для CI каноничны
+команды из блоков «Linux / macOS».
+
 Бэкенд (Windows PowerShell):
 
 ```powershell
@@ -53,9 +57,13 @@ cd backend
 
 ```bash
 cd backend
+chmod +x gradlew          # на свежем Linux-чекауте и на раннере GitHub
 ./gradlew ktlintCheck test build
 ```
 
+- На Linux и на раннере GitHub у `gradlew` нет бита на исполнение: без
+  `chmod +x gradlew` команда `./gradlew` завершится с `Permission denied`
+  (CI делает `chmod +x ./gradlew` явно).
 - Автоформат Kotlin: `.\gradlew.bat ktlintFormat` (или `./gradlew ktlintFormat`).
 - Запуск: `.\gradlew.bat bootRun` (или `./gradlew bootRun`), health: `http://localhost:8080/actuator/health`.
 - Без `DB_URL` бэкенд поднимается на in-memory H2 (образ стартует без внешней БД); с `DB_URL`/`DB_USER`/`DB_PASSWORD` — Postgres (см. `docker-compose.yml`). Тесты используют встроенный Postgres (embedded) и внешней БД не требуют.
