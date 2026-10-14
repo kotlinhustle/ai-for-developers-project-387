@@ -8,13 +8,20 @@
 ## Демо
 
 **https://calendar-y6sf.onrender.com** — демо **предыдущего проекта**
-(репозиторий `ai-for-developers-project-386`). Это развёрнутое приложение на
-бесплатном тарифе Render (сервис засыпает при простое, первый запрос после сна —
-с задержкой).
+(репозиторий `ai-for-developers-project-386`). Ссылка обслуживает сборку
+приложения **из репозитория 386** (версия приложения `0.1.0` по манифесту 386),
+а не из этого репозитория. Сервис на бесплатном тарифе Render: засыпает при
+простое, первый запрос после сна — с задержкой (во время «просыпания» отдаёт
+`503`).
 
-> Render для этого репозитория (`ai-for-developers-project-387`) пока не
-> настроен: код перенесён, но сервис ещё не пересобран из нового репозитория.
-> Актуальная демо-ссылка появится здесь после настройки деплоя.
+Проверено: `GET /actuator/health` отвечает `200` `{"status":"UP"}` после
+«пробуждения», но отдельного endpoint с версией у приложения нет, поэтому
+снаружи версию не отличить — на принадлежность к 386 указывают README и
+отсутствие сервиса Render у этого репозитория.
+
+> Render для этого репозитория (`ai-for-developers-project-387`) не настроен:
+> код перенесён, но отдельный сервис ещё не создан. Предложение — в разделе
+> «Деплой (Render)».
 
 ## Стек
 
@@ -222,6 +229,20 @@ frankfurt). Приложение слушает `PORT`, подключение �
 Оговорки бесплатного тарифа: сервис засыпает при простое (первый запрос после
 сна — с задержкой); бесплатный PostgreSQL имеет ограниченный срок жизни.
 
+### Предложение: отдельный бесплатный деплой для 387
+
+Чтобы получить демо именно из этого репозитория и **не трогать сервис проекта
+386**, нужны **отдельные** бесплатные ресурсы Render:
+
+1. Новый бесплатный Docker web service из репозитория
+   `ai-for-developers-project-387` (branch `main`, корневой `Dockerfile`),
+   регион — как у 386 (frankfurt). Существующий сервис 386 не изменяется.
+2. Новый бесплатный PostgreSQL (или совсем без БД — тогда приложение поднимется
+   на in-memory H2) и передача его в сервис через `DB_URL`/`DB_USER`/`DB_PASSWORD`.
+3. После создания ссылка появится в разделе «Демо».
+
+Всё в рамках **бесплатного** тарифа; платные ресурсы не требуются.
+
 ## Браузерные тесты (Playwright)
 
 Основной сценарий: владелец создаёт тип встречи → гость выбирает тип и свободный
@@ -303,8 +324,8 @@ E2E_BASE_URL=http://localhost:4173 npm test
 | --- | --- | --- | --- | --- | --- |
 | `opencode.yml` | `issue_comment` (`created`), `pull_request_review_comment` (`created`) | `opencode/deepseek-v4.1-flash` | Интерактивный агент по команде `/oc` или `/opencode` от пользователей с доступом на запись | `contents: read`, `pull-requests: write`, `id-token: write` | Actions → `opencode`; ответ — комментарий к issue/PR |
 | `opencode-triage.yml` | `issues` (`opened`) | `opencode/deepseek-v4.1-flash` | Разбор новой жалобы по коду: причина, файлы, план; комментарий к issue | `contents: read`, `issues: write`, `id-token: write` | Actions → `opencode-triage`; результат — комментарий к issue |
-| `opencode-review.yml` | `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`) | `opencode/deepseek-v4.1-flash` | Авторевью PR: баги, тесты, AGENTS.md, API-контракт; `use_github_token: true` | `contents: read`, `pull-requests: write`, `issues: write` | Actions → `opencode-review`; результат — комментарий к PR |
-| `opencode-audit.yml` | `schedule` (`23 22 * * *`), `workflow_dispatch` | `opencode/deepseek-v4.1-flash` | Аудит документации: отчёт и Issue по подтверждённому расхождению | `contents: read`, `issues: write`, `id-token: write` | Actions → `opencode-audit`; отчёт — в артефакте `docs-audit` |
+| `opencode-review.yml` | `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`) | `opencode/deepseek-v4.1-flash` | Авторевью PR: баги, тесты, AGENTS.md, API-контракт; `use_github_token: true` | `contents: read`, `pull-requests: write`, `issues: write`, `id-token: write` | Actions → `opencode-review`; результат — комментарий к PR |
+| `opencode-audit.yml` | `schedule` (`23 22 * * *`), `workflow_dispatch` | `opencode/deepseek-v4.1-flash` | Аудит документации: отчёт и Issue по подтверждённому расхождению | `contents: write`, `pull-requests: write`, `issues: write`, `id-token: write` | Actions → `opencode-audit`; отчёт — в артефакте `docs-audit` |
 
 **Права и почему именно они.**
 
@@ -319,12 +340,26 @@ E2E_BASE_URL=http://localhost:4173 npm test
 - `GH_TOKEN` (`secrets.GITHUB_TOKEN`) — чтобы `gh` был авторизован и агент не
   искал токены на диске (`~/.config/gh`).
 - `use_github_token: true` (только авторевью) — действие использует
-  `GITHUB_TOKEN` напрямую; в этом режиме `id-token: write` не нужен.
+  `GITHUB_TOKEN` напрямую; в этом режиме `id-token: write` не требуется
+  технически, но выдан для соответствия заданию (см. ниже).
 
-Отличие от требований предыдущего этапа: для `opencode-audit.yml` ранее были
-заданы `contents: write` и `pull-requests: write`, но аудит не меняет код и не
-создаёт PR (пишет отчёт в игнорируемый `audit-output/` и создаёт Issue), поэтому
-права сокращены до `contents: read`, `issues: write`, `id-token: write`.
+**Соответствие заданию.** По требованиям этапа в workflow явно заданы такие права:
+
+- `opencode-review.yml` — дополнительно `id-token: write` (пункт задания
+  «добавь `id-token: write` в авторевью»).
+- `opencode-audit.yml` — `contents: write`, `pull-requests: write`,
+  `issues: write`, `id-token: write`. Аудит по факту не меняет код и не создаёт PR
+  (пишет отчёт в игнорируемый `audit-output/` и создаёт Issue), поэтому
+  `contents: write` и `pull-requests: write` здесь выданы **для соответствия
+  заданию**, а не потому, что нужны агенту.
+
+**Фильтрация ботов.** Во всех агентных workflow есть исключение ботов:
+`opencode.yml` — `comment.user.type != 'Bot'` и `!endsWith(actor, '[bot]')`
+(плюс ограничение по `author_association`); `opencode-triage.yml` —
+`issue.user.type != 'Bot'` и `!endsWith(issue.user.login, '[bot]')`;
+`opencode-review.yml` — `!endsWith(actor, '[bot]')`; `opencode-audit.yml` —
+`github.event_name == 'schedule' || !endsWith(actor, '[bot]')`, то есть фильтр не
+блокирует штатный запуск по расписанию.
 
 **Расписание и таймауты.**
 
