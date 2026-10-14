@@ -1,0 +1,55 @@
+name: opencode-review
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+jobs:
+  review:
+    if: |
+      github.event.pull_request.draft == false &&
+      !endsWith(github.actor, '[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode/deepseek-v4.1-flash
+          use_github_token: true
+          prompt: |
+            Ты автоматически ревьюишь pull request в этом репозитории.
+
+            Изучи изменения (diff) и при необходимости связанные файлы целиком,
+            затем оставь один комментарий к pull request на русском языке.
+
+            Проверь:
+            - вероятные баги и регрессии в изменённом коде;
+            - тесты: покрыто ли новое поведение, не сломаны ли существующие;
+            - соблюдение правил AGENTS.md (структура, команды проверок,
+              ограничения зависимостей, формат коммитов);
+            - соответствие API-контракту из spec/ (TypeSpec): пути, методы,
+              коды ответов, поля и типы.
+
+            В ответе:
+            - пиши на русском языке, кратко и по делу, со ссылками на файлы и строки;
+            - отделяй подтверждённые проблемы от предположений;
+            - если замечаний нет, так и скажи.
+
+            Ограничения:
+            - код не меняй и не коммить;
+            - не одобряй pull request (не ставь approve);
+            - не мержи pull request.

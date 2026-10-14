@@ -255,6 +255,10 @@ E2E_BASE_URL=http://localhost:4173 npm test
 - `.github/workflows/opencode-triage.yml` — при открытии issue агент OpenCode
   разбирает жалобу по коду и оставляет комментарий (issues от ботов
   пропускаются); код не меняется, PR не создаётся, issue не закрывается.
+- `.github/workflows/opencode-review.yml` — автоматическое ревью pull request:
+  агент проверяет баги, тесты, соблюдение AGENTS.md и API-контракта и оставляет
+  комментарий на русском (draft и события от ботов пропускаются); код не
+  меняется, PR не одобряется и не мержится.
 
 Версия приложения (`0.1.0`) синхронизирована между `version.txt`,
 `.release-please-manifest.json`, `backend/build.gradle.kts` и
