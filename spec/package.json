@@ -1,0 +1,19 @@
+{
+  "name": "@calendar/spec",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "generate:openapi": "tsp compile .",
+    "generate:client": "openapi-generator-cli generate -i tsp-output/openapi/openapi.yaml -g typescript-fetch -o ../frontend/src/generated/api --additional-properties=supportsES6=true",
+    "generate:server": "openapi-generator-cli generate -i tsp-output/openapi/openapi.yaml -g kotlin-spring -o ../backend/build/generated/openapi --additional-properties=interfaceOnly=true,useSpringBoot4=true,useJackson3=true,annotationLibrary=none,documentationProvider=none,apiPackage=com.example.backend.api,modelPackage=com.example.backend.api.model",
+    "generate": "npm run generate:openapi && npm run generate:client && npm run generate:server"
+  },
+  "devDependencies": {
+    "@typespec/compiler": "~1.17.0",
+    "@typespec/http": "~1.17.0",
+    "@typespec/openapi": "~1.17.0",
+    "@typespec/openapi3": "~1.17.0",
+    "@openapitools/openapi-generator-cli": "2.41.0"
+  }
+}

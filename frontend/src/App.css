@@ -1,0 +1,168 @@
+.page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+.page--narrow {
+  max-width: 480px;
+  text-align: center;
+}
+
+.hero {
+  text-align: center;
+  padding: 2rem 0 3rem;
+}
+
+.hero__title {
+  margin: 0 0 1rem;
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  line-height: 1.2;
+}
+
+.hero__subtitle {
+  margin: 0 0 2rem;
+  color: #495057;
+}
+
+.button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  background: #4c6ef5;
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.button:hover {
+  background: #4263eb;
+}
+
+.button--secondary {
+  background: #e9ecef;
+  color: #213547;
+}
+
+.button--secondary:hover {
+  background: #dee2e6;
+}
+
+.section {
+  padding: 2rem 0;
+  border-top: 1px solid #e9ecef;
+}
+
+.section__title {
+  margin: 0 0 1.25rem;
+  font-size: 1.375rem;
+}
+
+.steps,
+.benefits {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 1rem;
+}
+
+.steps__item {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.steps__number {
+  flex: 0 0 auto;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  background: #4c6ef5;
+  color: #fff;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.benefits__item {
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.slots {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.slots__item {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.form {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  text-align: left;
+}
+
+.form__field {
+  display: grid;
+  gap: 0.25rem;
+  font-weight: 600;
+}
+
+.form__input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ced4da;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 2rem;
+  border-top: 1px solid #e9ecef;
+  color: #868e96;
+  font-size: 0.875rem;
+}
+
+.footer__brand {
+  font-weight: 600;
+  color: #495057;
+}
+
+.status {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.status--loading {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.status--up {
+  background: #d3f9d8;
+  color: #2b8a3e;
+}
+
+.status--down {
+  background: #ffe3e3;
+  color: #c92a2a;
+}

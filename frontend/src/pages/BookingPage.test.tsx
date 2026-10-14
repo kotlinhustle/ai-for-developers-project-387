@@ -1,0 +1,156 @@
+import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import BookingPage from './BookingPage'
+
+const consultation = {
+  id: '1',
+  name: 'Консультация',
+  description: 'Разбор задачи',
+  durationMinutes: 30,
+}
+
+const freeSlot = { start: '2026-10-12T06:00:00Z', durationMinutes: 30 }
+
+const booking = {
+  id: 'b1',
+  meetingTypeId: '1',
+  start: '2026-10-12T06:00:00Z',
+  end: '2026-10-12T06:30:00Z',
+  guestName: 'Гость',
+  guestEmail: 'guest@example.com',
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
+function renderPage() {
+  return render(
+    <MemoryRouter>
+      <BookingPage />
+    </MemoryRouter>,
+  )
+}
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
+
+async function chooseSlot(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(await screen.findByRole('button', { name: /Консультация/ }))
+  await user.click(await screen.findByRole('button', { name: /10:00/ }))
+  await user.type(screen.getByLabelText('Имя'), 'Гость')
+  await user.type(screen.getByLabelText('Email'), 'guest@example.com')
+}
+
+describe('страница записи', () => {
+  it('показывает пустое состояние, когда типов встреч нет', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse([])),
+    )
+    renderPage()
+
+    expect(await screen.findByText('Пока нет доступных типов встреч')).toBeInTheDocument()
+  })
+
+  it('показывает типы встреч, разобранные сгенерированным клиентом', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => jsonResponse([consultation])),
+    )
+    renderPage()
+
+    expect(await screen.findByText('Консультация')).toBeInTheDocument()
+  })
+
+  it('показывает свободные слоты выбранного типа в поясе владельца', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/slots')) {
+          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /Консультация/ }))
+
+    expect(await screen.findByText(/Asia\/Yerevan/)).toBeInTheDocument()
+  })
+
+  it('записывает на слот и показывает подтверждение с деталями', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return jsonResponse(booking, 201)
+        }
+        if (url.includes('/slots')) {
+          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await chooseSlot(user)
+    await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+    expect(await screen.findByText('Вы записаны')).toBeInTheDocument()
+    expect(screen.getByText(/Консультация:.*30 мин/)).toBeInTheDocument()
+  })
+
+  it('показывает ошибку, когда слот уже занят', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return jsonResponse({ title: 'Conflict' }, 409)
+        }
+        if (url.includes('/slots')) {
+          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await chooseSlot(user)
+    await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+    expect(await screen.findByText('Это время уже занято')).toBeInTheDocument()
+  })
+
+  it('показывает ошибку при неверных данных', async () => {
+    const user = userEvent.setup()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return jsonResponse({ title: 'Validation failed' }, 422)
+        }
+        if (url.includes('/slots')) {
+          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await chooseSlot(user)
+    await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+    expect(await screen.findByText('Не удалось записаться')).toBeInTheDocument()
+  })
+})
