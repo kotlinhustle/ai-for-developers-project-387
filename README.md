@@ -252,6 +252,9 @@ E2E_BASE_URL=http://localhost:4173 npm test
 - `.github/workflows/opencode.yml` — интерактивный агент OpenCode: запускается
   командой `/oc` или `/opencode` в комментарии к issue или pull request
   (комментарии ботов игнорируются).
+- `.github/workflows/opencode-triage.yml` — при открытии issue агент OpenCode
+  разбирает жалобу по коду и оставляет комментарий (issues от ботов
+  пропускаются); код не меняется, PR не создаётся, issue не закрывается.
 
 Версия приложения (`0.1.0`) синхронизирована между `version.txt`,
 `.release-please-manifest.json`, `backend/build.gradle.kts` и

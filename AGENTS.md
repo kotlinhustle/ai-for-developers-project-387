@@ -29,6 +29,7 @@ opencode.json                  проектная MCP-конфигурация (
 .github/workflows/
   ci.yml                       push + pull_request: Backend, Frontend, E2E, Docker
   opencode.yml                 интерактивный агент: /oc или /opencode в комментарии
+  opencode-triage.yml          issue opened: разбор жалобы агентом (только комментарий)
   release-please.yml           push в main: версия и CHANGELOG
   pr-title.yml                 проверка заголовка PR (Conventional Commits)
   hexlet-check.yml             НЕ ТРОГАТЬ (генерируется Хекслетом)

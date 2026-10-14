@@ -1,0 +1,39 @@
+name: opencode-triage
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  triage:
+    if: |
+      github.event.issue.user.type != 'Bot' &&
+      !endsWith(github.event.issue.user.login, '[bot]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Run OpenCode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+        with:
+          model: opencode/deepseek-v4.1-flash
+          prompt: |
+            Прочитай жалобу в этом issue и разберись в ней по коду репозитория.
+            Оставь разбор комментарием к issue на русском языке:
+            - что произошло;
+            - вероятная причина с подтверждением из кода (файл и строка);
+            - затронутые файлы;
+            - вопросы к автору, если данных недостаточно;
+            - предлагаемый путь исправления.
+            Чётко отделяй подтверждённое (видно в коде) от предположений.
+            Код не меняй, pull request не создавай, issue не закрывай.
