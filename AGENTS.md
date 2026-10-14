@@ -126,6 +126,9 @@ release-please формирует версии и CHANGELOG именно из э
 - Не удалять и не редактировать `.github/workflows/hexlet-check.yml`.
 - Не коммитить `node_modules/`, `build/`, `dist/`.
 - После изменений в backend запускать `ktlintCheck` (или `ktlintFormat`), после изменений во frontend — `lint` и `typecheck`.
+- В описании PR закрывающую ссылку (`Closes #N`) размещать обычным текстом,
+  вне блока кода, и сохранять при любом редактировании описания — иначе issue
+  не закроется автоматически при мерже.
 
 ## Agent skills
 
