@@ -31,6 +31,7 @@ opencode.json                  проектная MCP-конфигурация (
   opencode.yml                 интерактивный агент: /oc или /opencode в комментарии
   opencode-triage.yml          issue opened: разбор жалобы агентом (только комментарий)
   opencode-review.yml          pull_request: авторевью PR агентом (только комментарий)
+  opencode-audit.yml           schedule + workflow_dispatch: аудит документации агентом
   release-please.yml           push в main: версия и CHANGELOG
   pr-title.yml                 проверка заголовка PR (Conventional Commits)
   hexlet-check.yml             НЕ ТРОГАТЬ (генерируется Хекслетом)

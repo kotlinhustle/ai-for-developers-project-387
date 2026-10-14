@@ -1,0 +1,118 @@
+name: opencode-audit
+on:
+  schedule:
+    - cron: "23 22 * * *"
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Collect audit source data
+        env:
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -uo pipefail
+          mkdir -p audit-output
+          OUT=audit-output/raw-data.md
+          {
+            echo "# Исходные данные для аудита документации"
+            echo
+            echo "- Прогон: ${RUN_URL}"
+            echo "- Коммит: ${GITHUB_SHA}"
+            echo
+            echo "## Файлы репозитория (git ls-files)"
+            echo '```'
+            git ls-files
+            echo '```'
+            echo
+            echo "## Команды запуска и проверок из README.md, AGENTS.md, docs/"
+            echo '```'
+            grep -rnE '(npm (ci|run|install|test)|\./gradlew|gradlew\.bat|docker (build|compose|run)|npx |curl |chmod )' \
+              README.md AGENTS.md docs/ 2>/dev/null || echo "(совпадений нет)"
+            echo '```'
+            echo
+            echo "## Маршруты API (spec/main.tsp)"
+            echo '```'
+            grep -nE '@(route|get|post|put|patch|delete)' spec/main.tsp 2>/dev/null || echo "(совпадений нет)"
+            echo '```'
+            echo
+            echo "## Маршруты frontend (frontend/src/App.tsx)"
+            echo '```'
+            grep -nE '<Route|path=' frontend/src/App.tsx 2>/dev/null || echo "(совпадений нет)"
+            echo '```'
+            echo
+            echo "## Упоминания файлов и ссылки в README.md, AGENTS.md, docs/"
+            echo '```'
+            grep -rnE '(\]\([^)]*\)|https?://[^ )]+|`[^`]+\.(kt|kts|ts|tsx|js|sql|tsp|json|ya?ml|properties|md|jar)`|(frontend|backend|spec|docs|e2e)/)' \
+              README.md AGENTS.md docs/ 2>/dev/null || echo "(совпадений нет)"
+            echo '```'
+          } > "$OUT"
+          echo "Собрано: $OUT ($(wc -l < "$OUT") строк)"
+
+      - name: Run OpenCode audit
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode/deepseek-v4.1-flash
+          prompt: |
+            Ты проводишь регулярный аудит документации проекта. Сравни документацию
+            с реальным кодом и настройками и найди расхождения.
+
+            Исходные данные уже собраны в файле `audit-output/raw-data.md` (список
+            файлов, команды запуска и проверок, маршруты, упоминания файлов и ссылки).
+            Прочитай его и изучи сам код и документацию: README.md, AGENTS.md, docs/,
+            backend/, frontend/, spec/, .github/workflows/.
+
+            Проверь:
+            - устаревшие команды (которых больше нет или которые изменились);
+            - несуществующие пути и файлы, на которые ссылается документация;
+            - неверное описание поведения, маршрутов и настроек по сравнению с кодом.
+
+            Правила:
+            - отделяй подтверждённые проблемы (видно в коде и настройках) от предположений;
+            - для каждой находки укажи файл документации, что именно не так, подтверждение
+              из кода (файл и строка) и рекомендацию;
+            - ничего не выдумывай: если расхождений нет, так и напиши.
+
+            Результат:
+            1. Сохрани Markdown-отчёт на русском языке в файл `audit-output/report.md`.
+               Структура: краткий итог; подтверждённые расхождения (с доказательствами
+               и рекомендациями); предположения (если есть); что проверено.
+            2. Если есть хотя бы одно подтверждённое расхождение — создай Issue со
+               ссылкой на этот прогон. Перед созданием проверь дубликаты:
+               `gh issue list --state open --search "<краткая формулировка>"`. Если
+               открытый Issue с той же проблемой уже есть — не создавай новый, а
+               добавь комментарий к существующему.
+               В теле Issue: что не так, где (файл документации), подтверждение из
+               кода, рекомендация и ссылка на прогон.
+               Ссылка на прогон: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+               Если подтверждённых расхождений нет — ничего не создавай, а в отчёте
+               явно напиши, что находок нет.
+
+            Ограничения:
+            - код и документацию не исправляй и не коммить;
+            - pull request не создавай;
+            - не расширяй доступ к внешним каталогам.
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docs-audit
+          path: audit-output/
+          retention-days: 14
