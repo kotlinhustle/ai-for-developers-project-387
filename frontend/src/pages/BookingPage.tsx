@@ -19,12 +19,26 @@ function BookingPage() {
   const [error, setError] = useState<string | null>(null)
   const [slotsError, setSlotsError] = useState<string | null>(null)
 
+  function fetchSlots(meetingType: MeetingType) {
+    return meetingTypesApi.meetingTypesListSlots({ meetingTypeId: meetingType.id })
+  }
+
   async function loadSlots(meetingType: MeetingType) {
     try {
-      setSlots(await meetingTypesApi.meetingTypesListSlots({ meetingTypeId: meetingType.id }))
+      setSlots(await fetchSlots(meetingType))
       setSlotsError(null)
     } catch {
+      setSlots(null)
       setSlotsError('Не удалось обновить свободные слоты')
+    }
+  }
+
+  async function refreshSlotsQuietly(meetingType: MeetingType) {
+    try {
+      setSlots(await fetchSlots(meetingType))
+      setSlotsError(null)
+    } catch {
+      setSlotsError(null)
     }
   }
 
@@ -72,7 +86,7 @@ function BookingPage() {
       return
     }
 
-    await loadSlots(selected)
+    await refreshSlotsQuietly(selected)
   }
 
   return (

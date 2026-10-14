@@ -175,14 +175,19 @@ describe('страница записи', () => {
     expect(await screen.findByText('Вы записаны')).toBeInTheDocument()
   })
 
-  it('показывает ошибку и повторяет загрузку, если слоты не обновились', async () => {
+  it('убирает устаревшие слоты и сохраняет ввод, если обновление после конфликта упало', async () => {
     const user = userEvent.setup()
+    const nextSlot = { start: '2026-10-12T07:00:00Z', durationMinutes: 30 }
     let slotsCall = 0
+    let postCall = 0
     vi.stubGlobal(
       'fetch',
       vi.fn(async (url: string, init?: RequestInit) => {
         if (init?.method === 'POST') {
-          return jsonResponse({ title: 'Conflict' }, 409)
+          postCall += 1
+          return postCall === 1
+            ? jsonResponse({ title: 'Conflict' }, 409)
+            : jsonResponse(booking, 201)
         }
         if (url.includes('/slots')) {
           slotsCall += 1
@@ -192,7 +197,7 @@ describe('страница записи', () => {
           if (slotsCall === 2) {
             return jsonResponse({ title: 'Server error' }, 500)
           }
-          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [] })
+          return jsonResponse({ zoneId: 'Asia/Yerevan', slots: [nextSlot] })
         }
         return jsonResponse([consultation])
       }),
@@ -203,10 +208,71 @@ describe('страница записи', () => {
     await user.click(screen.getByRole('button', { name: 'Записаться' }))
 
     expect(await screen.findByText('Не удалось обновить свободные слоты')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /10:00/ })).not.toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Повторить загрузку' }))
 
-    expect(await screen.findByText('Нет свободных слотов')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /11:00/ }))
+
+    expect(screen.getByLabelText('Имя')).toHaveValue('Гость')
+    expect(screen.getByLabelText('Email')).toHaveValue('guest@example.com')
+
+    await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+    expect(await screen.findByText('Вы записаны')).toBeInTheDocument()
+  })
+
+  it('показывает ошибку и повторяет загрузку, если первичная загрузка слотов упала', async () => {
+    const user = userEvent.setup()
+    let slotsCall = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string) => {
+        if (url.includes('/slots')) {
+          slotsCall += 1
+          return slotsCall === 1
+            ? jsonResponse({ title: 'Server error' }, 500)
+            : jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await user.click(await screen.findByRole('button', { name: /Консультация/ }))
+
+    expect(await screen.findByText('Не удалось обновить свободные слоты')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Повторить загрузку' }))
+
+    expect(await screen.findByRole('button', { name: /10:00/ })).toBeInTheDocument()
+  })
+
+  it('показывает подтверждение, даже если обновление списка после записи упало', async () => {
+    const user = userEvent.setup()
+    let slotsCall = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (init?.method === 'POST') {
+          return jsonResponse(booking, 201)
+        }
+        if (url.includes('/slots')) {
+          slotsCall += 1
+          return slotsCall === 1
+            ? jsonResponse({ zoneId: 'Asia/Yerevan', slots: [freeSlot] })
+            : jsonResponse({ title: 'Server error' }, 500)
+        }
+        return jsonResponse([consultation])
+      }),
+    )
+    renderPage()
+
+    await chooseSlot(user)
+    await user.click(screen.getByRole('button', { name: 'Записаться' }))
+
+    expect(await screen.findByText('Вы записаны')).toBeInTheDocument()
+    expect(screen.queryByText('Не удалось обновить свободные слоты')).not.toBeInTheDocument()
   })
 
   it('показывает ошибку при неверных данных', async () => {
