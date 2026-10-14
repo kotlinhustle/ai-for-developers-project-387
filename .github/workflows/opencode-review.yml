@@ -29,6 +29,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode/deepseek-v4.1-flash
+          share: false
           use_github_token: true
           prompt: |
             Ты автоматически ревьюишь pull request в этом репозитории.

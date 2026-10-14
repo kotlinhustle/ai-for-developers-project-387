@@ -27,6 +27,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/deepseek-v4.1-flash
+          share: false
           prompt: |
             Прочитай жалобу в этом issue и разберись в ней по коду репозитория.
             Оставь разбор комментарием к issue на русском языке:

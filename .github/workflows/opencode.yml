@@ -8,6 +8,7 @@ on:
 jobs:
   opencode:
     if: |
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association) &&
       github.event.comment.user.type != 'Bot' &&
       (contains(github.event.comment.body, '/oc') ||
       contains(github.event.comment.body, '/opencode'))
@@ -31,3 +32,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode/deepseek-v4.1-flash
+          mentions: "/opencode,/oc"
+          share: false

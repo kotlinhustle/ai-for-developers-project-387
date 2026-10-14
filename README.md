@@ -276,27 +276,115 @@ E2E_BASE_URL=http://localhost:4173 npm test
   CHANGELOG на основе Conventional Commits.
 - `.github/workflows/pr-title.yml` — проверяет, что заголовок PR соответствует
   Conventional Commits.
-- `.github/workflows/opencode.yml` — интерактивный агент OpenCode: запускается
-  командой `/oc` или `/opencode` в комментарии к issue или pull request
-  (комментарии ботов игнорируются).
-- `.github/workflows/opencode-triage.yml` — при открытии issue агент OpenCode
-  разбирает жалобу по коду и оставляет комментарий (issues от ботов
-  пропускаются); код не меняется, PR не создаётся, issue не закрывается.
-- `.github/workflows/opencode-review.yml` — автоматическое ревью pull request:
-  агент проверяет баги, тесты, соблюдение AGENTS.md и API-контракта и оставляет
-  комментарий на русском (draft и события от ботов пропускаются); код не
-  меняется, PR не одобряется и не мержится.
-- `.github/workflows/opencode-audit.yml` — ежедневный (по расписанию) и ручной
-  (`workflow_dispatch`) аудит документации: отдельный шаг собирает исходные данные
-  (файлы, команды, маршруты, упоминания и ссылки), затем агент OpenCode сравнивает
-  README, AGENTS.md и docs/ с кодом и настройками, пишет Markdown-отчёт на русском
-  и по подтверждённому расхождению создаёт Issue со ссылкой на прогон (с проверкой
-  дубликатов). Код не исправляется, PR не создаётся; исходные данные и отчёт
-  сохраняются в артефакте прогона.
+- `.github/workflows/opencode*.yml` — агентные workflow OpenCode (интерактивный
+  агент, триаж, авторевью, аудит). События, права и расписание — в разделе
+  «Агентные workflow OpenCode».
 
 Версия приложения (`0.1.0`) синхронизирована между `version.txt`,
 `.release-please-manifest.json`, `backend/build.gradle.kts` и
 `frontend/package.json`. release-please обновляет все эти файлы при релизе.
+
+## Агентные workflow OpenCode
+
+Все агентные workflow используют модель `opencode/deepseek-v4.1-flash`, ключ
+`OPENCODE_API_KEY` и запускаются на `ubuntu-latest`.
+
+**Репозиторий публичный**, поэтому:
+
+- публичный шаринг сессий отключён (`share: false`) — сессии агента не
+  выкладываются на opencode.ai;
+- интерактивный агент ограничен пользователями с доступом на запись
+  (`author_association` ∈ `OWNER`/`MEMBER`/`COLLABORATOR`), комментарии ботов
+  исключены;
+- авторевью пропускает draft-PR и события от ботов, но PR, созданные агентом,
+  ревьюятся (фильтр — по актору события, а не по автору PR).
+
+| Workflow | События | Модель | Назначение | Права (`permissions`) | Где смотреть запуск и результат |
+| --- | --- | --- | --- | --- | --- |
+| `opencode.yml` | `issue_comment` (`created`), `pull_request_review_comment` (`created`) | `opencode/deepseek-v4.1-flash` | Интерактивный агент по команде `/oc` или `/opencode` от пользователей с доступом на запись | `contents: read`, `pull-requests: write`, `id-token: write` | Actions → `opencode`; ответ — комментарий к issue/PR |
+| `opencode-triage.yml` | `issues` (`opened`) | `opencode/deepseek-v4.1-flash` | Разбор новой жалобы по коду: причина, файлы, план; комментарий к issue | `contents: read`, `issues: write`, `id-token: write` | Actions → `opencode-triage`; результат — комментарий к issue |
+| `opencode-review.yml` | `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`) | `opencode/deepseek-v4.1-flash` | Авторевью PR: баги, тесты, AGENTS.md, API-контракт; `use_github_token: true` | `contents: read`, `pull-requests: write`, `issues: write` | Actions → `opencode-review`; результат — комментарий к PR |
+| `opencode-audit.yml` | `schedule` (`23 22 * * *`), `workflow_dispatch` | `opencode/deepseek-v4.1-flash` | Аудит документации: отчёт и Issue по подтверждённому расхождению | `contents: read`, `issues: write`, `id-token: write` | Actions → `opencode-audit`; отчёт — в артефакте `docs-audit` |
+
+**Права и почему именно они.**
+
+- `contents: read` — checkout репозитория; больше `contents` не нужно, потому что
+  агент не коммитит и не пушит.
+- `pull-requests: write` — прочитать PR и публиковать ревью/правки через `gh`
+  (с `GH_TOKEN`); одних `read`-прав для публикации недостаточно.
+- `issues: write` — публикация комментариев и создание Issue (действие постит
+  результат через issues API).
+- `id-token: write` — обмен OIDC-токена на токен OpenCode App (для workflow без
+  `use_github_token: true`).
+- `GH_TOKEN` (`secrets.GITHUB_TOKEN`) — чтобы `gh` был авторизован и агент не
+  искал токены на диске (`~/.config/gh`).
+- `use_github_token: true` (только авторевью) — действие использует
+  `GITHUB_TOKEN` напрямую; в этом режиме `id-token: write` не нужен.
+
+Отличие от требований предыдущего этапа: для `opencode-audit.yml` ранее были
+заданы `contents: write` и `pull-requests: write`, но аудит не меняет код и не
+создаёт PR (пишет отчёт в игнорируемый `audit-output/` и создаёт Issue), поэтому
+права сокращены до `contents: read`, `issues: write`, `id-token: write`.
+
+**Расписание и таймауты.**
+
+- Аудит: `23 22 * * *` — ежедневно в **22:23 UTC**, то есть **02:23 Asia/Yerevan**
+  (следующего дня). GitHub может задержать запуск по расписанию при нагрузке.
+- Таймауты: `opencode.yml`, `opencode-triage.yml`, `opencode-review.yml` — 10
+  минут; `opencode-audit.yml` — 15 минут.
+
+**Как отключить автоматические запуски.**
+
+- Аудит: убрать/закомментировать блок `schedule` в `opencode-audit.yml` (оставив
+  `workflow_dispatch` для ручного запуска) или отключить workflow в
+  Actions → `opencode-audit` → «⋯» → Disable workflow.
+- Авторевью: отключить workflow `opencode-review` в Actions или убрать типы из
+  `pull_request.types`.
+- Триаж: отключить workflow `opencode-triage` в Actions.
+- Интерактивный агент: отключить workflow `opencode` в Actions — команды `/oc` и
+  `/opencode` перестанут вызывать агента.
+
+## Самооценка по истории проекта
+
+Коротко и честно о том, что подтверждено прогонами.
+
+- **Разбор Issues (триаж).** Issue #2 «После неудачной записи календарь предлагает
+  занятое время» обработан `opencode-triage` — прогон
+  [38611408858](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38611408858)
+  (success), результат — комментарий с разбором.
+- **Исправление бага.** По issue #2 создан и смержен PR #3
+  [«fix(frontend): refresh slots after booking conflict»](https://github.com/kotlinhustle/ai-for-developers-project-387/pull/3):
+  при `409` список слотов перезагружается, устаревшие слоты скрываются, добавлены
+  тесты. Issue #2 закрыт как выполненный.
+- **Оба канала ревью (интерактивный агент).** Агент отвечал и на обычный
+  комментарий к PR (`issue_comment`), и на комментарий к строке кода
+  (`pull_request_review_comment`) — прогоны
+  [38623117923](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38623117923)
+  и
+  [38624067414](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38624067414).
+- **Авторевью.** Workflow `opencode-review` на PR #3 — прогон
+  [38625073034](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38625073034)
+  (success), комментарий с замечаниями по коду, тестам, AGENTS.md и контракту.
+  По замечаниям в PR #3 добавлены коммиты `e3b0408` и `42621d0`.
+- **Аудит документации.** `opencode-audit` запущен **вручную**
+  (`workflow_dispatch`) — прогон
+  [38630143848](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38630143848)
+  (success); найдены и оформлены Issues #5 и #6. **Cron ещё не срабатывал** —
+  проверен только ручной запуск.
+
+Где потребовались итерации:
+
+- Интерактивный прогон завис на запросе `external_directory` и был отменён —
+  прогон
+  [38618439102](https://github.com/kotlinhustle/ai-for-developers-project-387/actions/runs/38618439102);
+  исправлено добавлением `GH_TOKEN` и правил доступа (коммит `e8f094e`).
+- Release Please падал с ошибкой «GitHub Actions is not permitted to create or
+  approve pull requests» — включён соответствующий параметр репозитория (как в
+  проекте 386).
+- Issue #2 не закрылся автоматически: `Closes #2` оказалось внутри блока кода в
+  описании PR — закрыт вручную, правило добавлено в `AGENTS.md`.
+- PR #3 не проходил авторевью, пока его ветка не была обновлена из `main` (merge
+  без переписывания истории).
 
 ---
 
