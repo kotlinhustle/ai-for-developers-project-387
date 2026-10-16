@@ -1,2 +1,5 @@
 # Audit output: generated in CI, uploaded as an artifact, never committed.
 audit-output/
+
+# JetBrains IDE
+.idea/
